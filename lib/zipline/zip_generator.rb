@@ -15,28 +15,28 @@ module Zipline
     def each(&block)
       output = new_output(&block)
       OutputStream.open(output) do |zip|
-        @files.each {|file, name| handle_file(zip, file, name) }
+        @files.each {|file, name, file_obj| handle_file(zip, file, name, file_obj) }
       end
     end
 
-    def handle_file(zip, file, name)
+    def handle_file(zip, file, name, file_obj)
       file = normalize(file)
       name = uniquify_name(name)
-      write_file(zip, file, name)
+      write_file(zip, file, name, file_obj)
     end
 
     def normalize(file)
-      unless is_io?(file)
-        if file.respond_to?(:url) && (!defined?(::Paperclip::Attachment) || !file.is_a?(::Paperclip::Attachment))
-          file = file
-        elsif file.respond_to? :file
-          file = File.open(file.file)
-        elsif file.respond_to? :path
-          file = File.open(file.path)
-        else
-          raise(ArgumentError, 'Bad File/Stream')
-        end
-      end
+      # unless is_io?(file)
+      #   if file.respond_to?(:url)
+      #     file = file
+      #   elsif file.respond_to? :file
+      #     file = File.open(file.file)
+      #   elsif file.respond_to? :path
+      #     file = File.open(file.path)
+      #   else
+      #     raise(ArgumentError, 'Bad File/Stream')
+      #   end
+      # end
       file
     end
 
@@ -44,23 +44,28 @@ module Zipline
       FakeStream.new(&block)
     end
 
-    def write_file(zip, file, name)
+    def write_file(zip, file, name, file_obj)
+
       size = get_size(file)
       zip.put_next_entry name, size
 
-      if is_io?(file)
-        while buffer = file.read(2048)
-          zip << buffer
-        end
-      else
-        the_remote_url = file.url(Time.now + 1.minutes)
-        c = Curl::Easy.new(the_remote_url) do |curl|
-          curl.on_body do |data|
-            zip << data
-            data.bytesize
-          end
-        end
-        c.perform
+
+      # if is_io?(file)
+      #   while buffer = file.read(2048)
+      #     zip << buffer
+      #   end
+      # else
+      #   the_remote_url = file.url(Time.now + 1.minutes)
+      #   c = Curl::Easy.new(the_remote_url) do |curl|
+      #     curl.on_body do |data|
+      #       zip << data
+      #       data.bytesize
+      #     end
+      #   end
+      #   c.perform
+      # end
+      file_obj.read do |chunk|
+        zip << chunk
       end
     end
 
